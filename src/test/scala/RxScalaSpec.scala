@@ -2,7 +2,7 @@ import java.util.concurrent.TimeUnit
 
 import org.specs2._
 import rx.Scheduler
-import rx.lang.scala.{Subscriber, Scheduler, Observable}
+import rx.lang.scala.{Subscription, Subscriber, Scheduler, Observable}
 import rx.lang.scala.schedulers.{IOScheduler, NewThreadScheduler, ComputationScheduler}
 
 import scala.concurrent.duration._
@@ -16,7 +16,38 @@ class RxScalaSpec extends Specification { def is = s2"""
     end with 'world'  $e1
     read a file in chunks $e2
     subscribe to ints $e3
-                                                      """
+    print out thread names for `Observable.just` and `Observable.create` $e4 ${tag("e4")}
+  """
+
+  // Execute with `~testOnly RxScalaSpec -- include e4`
+  def e4 = {
+    println(s"[Example] on ${Thread.currentThread().getName}")
+
+    def getDataFromVeeerySlowDatabase() = {
+      TimeUnit.SECONDS.sleep(2)
+      5
+    }
+
+    Observable.just {
+      println(s"[Observable.just] on ${Thread.currentThread().getName}")
+      getDataFromVeeerySlowDatabase()
+    }.subscribeOn(NewThreadScheduler())
+    .foreach { n =>
+      println(s"[Observable.just] (foreach) on ${Thread.currentThread().getName}")
+    }
+
+    Observable.create[Int] { observer =>
+      println(s"[Observable.create] on ${Thread.currentThread().getName}")
+      observer.onNext(getDataFromVeeerySlowDatabase())
+      observer.onCompleted()
+      Subscription()
+    }.subscribeOn(NewThreadScheduler())
+    .foreach { n =>
+      println(s"[Observable.create] (foreach) on ${Thread.currentThread().getName}")
+    }
+    success
+  }
+
   def e1 = {
     println(s"Starting on threadId: ${Thread.currentThread().getName}")
     Observable.from(0 to 3)
